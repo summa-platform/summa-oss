@@ -1,0 +1,44 @@
+{
+  "name": "common_task_producer_and_worker",
+  "private": true,
+  "main": "index.js",
+  "version": "0.0.1",
+  "description": "common task producer and worker",
+  "author": "Renars Liepins <renars.liepins@leta.lv>",
+  "dependencies": {
+    "underscore": "^1.8.3",
+    "amqplib": "^0.4.1",
+    "rethinkdbdash": "^2.3.21",
+    "jsonfile": "^2.2.3",
+    "kefir": "^3.2.1",
+    "moment": "^2.12.0",
+    "chai": "^3.5.0",
+    "ws": "^1.1.0",
+    "ajv": "^4.5.0",
+
+    "async": "^2.1.2",
+
+    "wav": "^1.0.1",
+
+    "request": "2.83.0",
+    "requestretry": "^1.9.0",
+
+    "babel-register": "^6.18.0",
+    "request-as-curl": "^0.1.0",
+    "url-join": "^1.1.0",
+
+    "debug": "^3.1.0"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0",
+    "babel-cli": "^6.6.4",
+    "babel-preset-es2015": "^6.6.0",
+    "babel-preset-stage-1": "^6.3.13",
+    "babel-plugin-transform-object-rest-spread": "^6.6.5",
+    "babel-plugin-transform-replace-object-assign": "^0.2.1"
+  },
+  "scripts": {
+    "prestart": "( [ ! -s node_modules ] && [ ! -d node_modules ] ) && ln -s /dist/node_modules node_modules || true",
+    "start": "nodemon --watch app --exec babel-node app/index.js"
+  }
+}

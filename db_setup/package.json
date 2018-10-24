@@ -1,0 +1,26 @@
+{
+  "name": "db_setup_script",
+  "private": true,
+  "version": "0.0.1",
+  "description": "load or setup db script",
+  "author": "Renars Liepins <renars.liepins@leta.lv>",
+  "dependencies": {
+    "rethinkdb": "2.2.1",
+    "debug": "2.2.0",
+    "jsonfile": "^2.2.3"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0",
+    "babel-cli": "^6.6.4",
+    "babel-preset-es2015": "^6.6.0",
+    "babel-preset-stage-1": "^6.3.13",
+    "babel-plugin-transform-object-rest-spread": "^6.6.5",
+    "babel-plugin-transform-replace-object-assign": "^0.2.1"
+  },
+  "scripts": {
+    "prestart": "( [ ! -s node_modules ] && [ ! -d node_modules ] ) && ln -s /dist/node_modules node_modules || true",
+
+    "babel-node": "babel-node --presets=es2015",
+    "start": "nodemon --exec npm run babel-node -- db_setup.js"
+  }
+}

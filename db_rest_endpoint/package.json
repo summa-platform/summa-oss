@@ -1,0 +1,47 @@
+{
+  "name": "summa-db-rest-endpoint",
+  "private": true,
+  "main": "index.js",
+  "version": "0.0.1",
+  "description": "a REST endpoint for reading and writing to summa db",
+  "author": "Renars Liepins <renars.liepins@leta.lv>",
+  "dependencies": {
+    "express": "4.16.2",
+    "body-parser": "^1.15.2",
+    "cors": "^2.7.1",
+    "ajv": "^4.5.0",
+
+    "rethinkdbdash": "^2.3.21",
+    "jsonfile": "^2.2.3",
+
+
+    "underscore": "^1.8.3",
+    "kefir": "^3.2.1",
+    "chai": "^3.5.0",
+    "ws": "^1.1.0",
+
+    "crypto": "^0.0.3",
+    "argon2-ffi": "summa-leta/argon2-ffi#arch\/x86-64",
+
+    "nocache": "^2.0.0"
+  },
+  "devDependencies": {
+    "babel-watch": "^2.0.6",
+    "babel-cli": "^6.24.1",
+    "babel-preset-es2017": "^6.24.1",
+    "babel-preset-es2016": "^6.24.1",
+    "babel-preset-es2015": "^6.24.1",
+    "babel-preset-stage-1": "^6.24.1",
+    "babel-plugin-transform-object-rest-spread": "^6.23.0",
+    "babel-plugin-transform-replace-object-assign": "^0.2.1",
+    "babel-plugin-transform-regenerator": "^6.24.1",
+    "babel-plugin-transform-runtime": "^6.23.0",
+    "babel-polyfill": "^6.23.0"
+  },
+  "scripts": {
+    "predev": "( [ ! -s node_modules ] && [ ! -d node_modules ] ) && ln -s /dist/node_modules node_modules || true",
+    "dev": "babel-watch --presets=es2015 app/index.js",
+    "prestart": "npm run predev && babel --presets=es2015 app -d dist",
+    "start": "node dist/index.js"
+  }
+}

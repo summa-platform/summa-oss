@@ -1,0 +1,14 @@
+# Sample default config
+parallel_downloads: 1
+chunk_extension: ts
+full_path: False
+chunk_metadata_endpoint: http://localhost:6010/new_chunk
+active_feeds:
+  # ids from objects in list under feeds key (see below) 
+  - dw_de
+feeds:
+  - name: DW Deutsch
+    id: dw_de
+    source_feed: http://dwstream6-lh.akamaihd.net/i/dwstream6_live@123962/index_5_av-p.m3u8?sd=10&rebase=on
+    # any extra fields here will be passed when submiting new chunk metadata at the next endpoint (see below)
+    dummy: this will be passed to chunk_metadata_endpoint

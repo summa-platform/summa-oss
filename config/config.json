@@ -1,0 +1,23 @@
+{
+  "db": {
+    "host": "summa_db",
+    "port": 28015,
+
+    "dbName"  : "summa_db",
+    "tables": {
+      "newsItems": "id",
+      "storylines": "id",
+      "namedEntities": "id",
+      "logMessages": "id",
+      "processes": "id",
+      "progressReports": "id",
+
+      "users": "id",
+      "feeds": "id",
+      "feedGroups": "id",
+      "queries": "id",
+      "feedback": "id",
+      "bookmarks": "id"
+    }
+  }
+}

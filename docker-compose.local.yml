@@ -1,0 +1,41 @@
+version: '3.3'
+
+# workaround for local docker-compose not supporting configs
+# docker-compose -f docker-compose.yml -f docker-compose.local.yml up
+
+services:
+  entrypoint:
+    volumes:
+      - ${PWD}/config/nginx.conf:/etc/nginx/conf.d/default.conf
+
+  db_setup:
+    volumes:
+      - ${PWD}/config/config.json:/config/config.json
+
+  livestream_cache_and_chunker:
+    volumes:
+      - ${PWD}/config/hls_chunker_config.yaml:/config/config.yaml
+
+  db_rest_endpoint:
+    volumes:
+      - ${PWD}/config/config.json:/config/config.json
+
+  task_producers:
+    volumes:
+      - ${PWD}/config/config.json:/config/config.json
+
+  task_workers:
+    volumes:
+      - ${PWD}/config/config.json:/config/config.json
+
+  result_writers:
+    volumes:
+      - ${PWD}/config/config.json:/config/config.json
+
+
+# NOTE: on some systems (e.g. Docker for Mac), Priberam clustering fails to work with host mounted volumes,
+# if so, override storyline_cluster_data_volume definition without host mounting as seen below,
+# and do not forget to run `docker volume rm NAME_storyline_cluster_data_volume` if the volume already exists,
+# e.g., from previous failed run.
+# volumes:
+#   storyline_cluster_data_volume:

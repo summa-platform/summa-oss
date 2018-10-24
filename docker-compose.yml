@@ -1,0 +1,369 @@
+version: '3.3'
+
+services:
+  entrypoint:
+    # entrypoint is the access point to the system from the outside
+    #   /              -> ui_stack                     (gui for journalists)
+    #   /v1            -> base_ui                      (gui for journalists)
+    #   /video-chunks/ -> livestream_cache_and_chunker (to access the livestream cache from outside)
+    #   /db/           -> db                           (gui for db exploration)
+    #   /job_queue/    -> job_queue                    (gui for job queue explorion)
+    image: nginx
+    configs:
+      - source: entrypoint_nginx_config
+        target: /etc/nginx/conf.d/default.conf
+    ports:
+      - 8000:80
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  db:
+    image: rethinkdb:2.3.6
+    volumes:
+      - db_data_volume:/data:rw
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role == manager
+
+  db_setup:
+    build:
+        context: ./db_setup
+    image: ${PRIVATE_REGISTRY_URL}/platform_db_setup:${PLATFORM_DB_SETUP_VER:-latest}
+    configs:
+      - source: db_config
+        target: /config/config.json
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  job_queue:
+    image: rabbitmq:3.6.1-management
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  ################################
+  # Livestream Cache and Chunker #
+  ################################
+  livestream_cache_and_chunker:
+    build:
+        context: ./hlschunker
+    image: ${PRIVATE_REGISTRY_URL}/platform_livestream_chunker:${PLATFORM_LIVESTREAM_CHUNKER_VER:-latest}
+    configs:
+      - source: hls_chunker_config
+        target: /config/config.yaml
+    volumes:
+      - livestream_cache_data_volume:/data:rw
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+
+  ##########################
+  # SUMMA DB REST ENDPOINT #
+  ##########################
+  db_rest_endpoint:
+    build:
+        context: ./db_rest_endpoint
+    image: ${PRIVATE_REGISTRY_URL}/platform_rest_endpoint:${PLATFORM_REST_ENDPOINT_VER:-latest}
+    configs:
+      - source: db_config
+        target: /config/config.json
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+  ########
+  # GUIs #
+  ########
+  base_ui:
+    image: ${PRIVATE_REGISTRY_URL}/gui_summa_ui:${GUI_SUMMA_UI_VER:-latest}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  ui_stack_db:
+    # image: postgres:10.2-alpine
+    image: mdillon/postgis:10-alpine
+    volumes:
+      - ${PWD}/ui-stack/dbinit:/docker-entrypoint-initdb.d
+      - ui_stack_db_volume:/var/lib/postgresql/data
+      - ${PWD}/ui-stack/postgres-entrypoint.sh:/docker-entrypoint.sh
+    environment:
+      POSTGRES_USER: summa
+      POSTGRES_DB: summa
+      POSTGRES_PASSWORD: summa-project
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role == manager
+
+  ui_stack_updatedb:
+    image: ${PRIVATE_REGISTRY_URL}/ui_stack_updatedb:${SUMMA_UI_STACK_UPDATEDB_VER:-latest}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+        delay: 10s
+        max_attempts: 3
+
+  ui_stack_pull:
+    image: ${PRIVATE_REGISTRY_URL}/ui_stack_pull:${SUMMA_UI_STACK_PULL_VER:-latest}
+    command: default=http://db_rest_endpoint/,http://livestream_cache_and_chunker:6000/
+
+  ui_stack_clustering:
+    image: ${PRIVATE_REGISTRY_URL}/ui_stack_clustering:${SUMMA_UI_STACK_CLUSTERING_VER:-latest}
+    volumes:
+      - ui_stack_clustering_data_volume:/pba/clustering/standalone/:rw
+
+  ui_stack_summarization:
+    image: ${PRIVATE_REGISTRY_URL}/ui_stack_summarization:${SUMMA_UI_STACK_SUMMARIZATION_VER:-latest}
+
+  ui_stack_geolocation:
+    image: ${PRIVATE_REGISTRY_URL}/ui_stack_geolocation:${SUMMA_UI_STACK_GEOLOCATION_VER:-latest}
+
+  ui_stack:
+    image: ${PRIVATE_REGISTRY_URL}/ui_stack:${SUMMA_UI_STACK_VER:-latest}
+
+
+  ##############################
+  # Task producers and workers #
+  ##############################
+
+  # one docker instance for all producers
+  task_producers:
+    build:
+        context: ./common_task_producer_and_worker
+    image: ${PRIVATE_REGISTRY_URL}/platform_task_producer:${PLATFORM_TASK_PRODUCER_VER:-latest}
+    environment:
+      STEP_TYPE: 'TASK_PRODUCER'
+      MESSAGE_QUEUE_HOST: ${MESSAGE_QUEUE_HOST}
+      SUMMA_REST_ENDPOINT: ${SUMMA_REST_ENDPOINT}
+      ACTIVE_STEPS: >
+        asr;
+        punctuation;
+        mt;
+        identity_mt;
+        deeptagger;
+        clustering;
+        entity_tagging;
+        storyline_summary;
+        newsItem_summary;
+        storyline_newsItem_cache;
+        newsItem_entity_cache;
+        amr;
+        language_detection;
+        relationship_extraction;
+        newsItem_done_timestamp;
+    configs:
+      - source: db_config
+        target: /config/config.json
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+
+  task_workers:
+    build:
+        context: ./common_task_producer_and_worker
+    image: ${PRIVATE_REGISTRY_URL}/platform_task_worker:${PLATFORM_TASK_WORKER_VER:-latest}
+    environment:
+      STEP_TYPE: 'TASK_WORKER'
+      MESSAGE_QUEUE_HOST: ${MESSAGE_QUEUE_HOST}
+      SUMMA_REST_ENDPOINT: ${SUMMA_REST_ENDPOINT}
+      ACTIVE_STEPS: >
+        identity_mt;
+        storyline_newsItem_cache;
+        newsItem_entity_cache;
+        newsItem_done_timestamp;
+    configs:
+      - source: db_config
+        target: /config/config.json
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  result_writers:
+    build:
+        context: ./common_task_producer_and_worker
+    image: ${PRIVATE_REGISTRY_URL}/platform_result_writer:${PLATFORM_RESULT_WRITER_VER:-latest}
+    environment:
+      STEP_TYPE: 'RESULT_WRITER'
+      MESSAGE_QUEUE_HOST: ${MESSAGE_QUEUE_HOST}
+      SUMMA_REST_ENDPOINT: ${SUMMA_REST_ENDPOINT}
+      ACTIVE_STEPS: >
+        asr;
+        punctuation;
+        mt;
+        identity_mt;
+        deeptagger;
+        clustering;
+        entity_tagging;
+        storyline_summary;
+        newsItem_summary;
+        storyline_newsItem_cache;
+        newsItem_entity_cache;
+        amr;
+        language_detection;
+        relationship_extraction;
+        newsItem_done_timestamp;
+    configs:
+      - source: db_config
+        target: /config/config.json
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+
+  #################
+  # NLP Endpoints #
+  #################
+
+  ##
+  ## Language Detection
+  language_detection:
+    image: ${PRIVATE_REGISTRY_URL}/nlp_language_detection_worker:${NLP_LANGUAGEDETECTION_WORKER_VER:-latest}
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.LanguageDetection
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+
+  ##
+  ## ASR
+  asr_worker-en:
+    image: ${PRIVATE_REGISTRY_URL}/nlp_asr_worker:${NLP_ASR_WORKER_EN_VER:-latest-en}
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.ASR.en
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: any
+
+  asr_worker-ar:
+    image: ${PRIVATE_REGISTRY_URL}/nlp_asr_worker:${NLP_ASR_WORKER_AR_VER:-latest-ar}
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.ASR.ar
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: any
+
+  ##
+  ## Punctutation
+  punctuation_worker-en:
+    image: ${PRIVATE_REGISTRY_URL}/nlp_punctuation_worker:${NLP_PUNCTUATION_WORKER_EN_VER:-latest-en}-${IMAGE_ARCH:-unk}
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      QUEUE_IN: SUMMA-NLP.Punctuation.en
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  punctuation_worker-ar:
+    image: ${PRIVATE_REGISTRY_URL}/nlp_punctuation_worker:${NLP_PUNCTUATION_WORKER_AR_VER:-latest-ar}-${IMAGE_ARCH:-unk}
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      QUEUE_IN: SUMMA-NLP.Punctuation.ar
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+  ##
+  ## MT
+  mt_worker-ar:
+    image: ${PRIVATE_REGISTRY_URL}/nlp_mt_worker:${NLP_MT_WORKER_AR_VER:-latest-ar}-${IMAGE_ARCH:-unk}
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      QUEUE_IN: SUMMA-NLP.MT.ar
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+###########
+# CONFIGS #
+###########
+configs:
+  db_config:
+    file: ./config/config.json
+  hls_chunker_config:
+    file: ./config/hls_chunker_config.yaml
+  entrypoint_nginx_config:
+    file: ./config/nginx.conf
+
+
+###########
+# VOLUMES #
+###########
+volumes:
+  db_data_volume:
+    # driver: local
+    # driver_opts:
+    #   o: bind
+    #   type: none
+    #   # relative paths seem not to work in swarm but ${PWD} works
+    #   device: ${PWD}/db_data
+
+  livestream_cache_data_volume:
+    # driver: local
+    # driver_opts:
+    #   o: bind
+    #   type: none
+    #   device: ${PWD}/file_storage
+
+  storyline_cluster_data_volume:
+    # NOTE: on some systems (e.g. Docker for Mac), Priberam clustering fails to work with host mounted volumes,
+    # if so, override this volume definition with no keys at this level, i.e., no 'driver' and 'driver_opts' keys;
+    # do not forget to run `docker volume rm NAME_storyline_cluster_data_volume` if the volume already exists,
+    # e.g., from previous failed run.
+    # driver: local
+    # driver_opts:
+    #   o: bind
+    #   type: none
+    #   device: ${PWD}/NLP_module_persistent_data/StorylineDetection
+
+  ui_stack_db_volume:
+
+  ui_stack_clustering_data_volume:

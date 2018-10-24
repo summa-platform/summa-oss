@@ -1,0 +1,19 @@
+// Use this file as a starting point for your project's .eslintrc.
+// Copy this file, and add rule overrides as needed.
+{
+  "extends": "airbnb",
+  "rules": {
+    "import/extensions": 0,
+    "import/no-unresolved": 0,
+    "indent": [2, 2, { "FunctionDeclaration": {"parameters": "first"} }]
+  },
+
+  "parser": "babel-eslint",
+  "parserOptions": {
+    "ecmaVersion": 7,
+    "sourceType": "module",
+    "ecmaFeatures": {
+      "experimentalObjectRestSpread": true
+    }
+  }
+}

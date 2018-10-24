@@ -1,0 +1,26 @@
+parallel_downloads: 1
+chunk_extension: ts
+full_path: False
+chunk_metadata_endpoint: http://db_rest_endpoint:80/videoChunks
+active_feeds:
+  - dw-english-1
+  - dw-arabic-1
+feeds:
+  - id: dw-english-1
+    name: DW (English)
+    language: English
+    source_feed: http://dwstream4-lh.akamaihd.net/i/dwstream4_live@131329/index_2_av-b.m3u8?sd=10&rebase=on
+    feedURL: http://dwstream4-lh.akamaihd.net/i/dwstream4_live@131329/index_2_av-b.m3u8?sd=10&rebase=on
+    sourceItemOriginFeedName: dw-live-english-1
+    sourceItemLangeCodeGuess: en
+    sourceItemType: livefeed-logical-chunk
+    sourceItemTitle: DW English Live Stream Chunk
+  - id: dw-arabic-1
+    name: DW (Arabic)
+    language: Arabic
+    source_feed: http://dwstream2-lh.akamaihd.net/i/dwstream2_live@124400/index_4_av-p.m3u8?sd=10&play-only=primary&rebase=on
+    feedURL: http://dwstream2-lh.akamaihd.net/i/dwstream2_live@124400/index_4_av-p.m3u8?sd=10&play-only=primary&rebase=on
+    sourceItemOriginFeedName: dw-live-arabic-1
+    sourceItemLangeCodeGuess: ar
+    sourceItemType: livefeed-logical-chunk
+    sourceItemTitle: DW Arabic Live Stream Chunk
