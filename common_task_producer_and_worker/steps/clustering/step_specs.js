@@ -3,12 +3,13 @@ import moment from 'moment';
 import _ from 'underscore';
 import { restCall, updateItemInDB } from '../../app/common/restClient';
 
-function createOrUpdateStoryline(storylineId, label, newsItem, callback) {
+function createOrUpdateStoryline(storylineId, label, newsItem, mergedStorylineIds, callback) {
   const address = `http://db_rest_endpoint/storylines/${storylineId}`;
   const storylineUpdate = {
     label,
     newsItem,
     source: 'Clusterization',
+    mergedStorylineIds,
   };
 
   restCall('PUT', address, storylineUpdate, callback);
@@ -86,13 +87,13 @@ const taskSpec = {
     inputSchema: {
       description: 'schema for storyline detection endpoint',
       type: 'object',
-      required: ['id', 'text', 'timestamp', 'timestamp_format', 'language', 'group_id', 'callback_url'],
+      required: ['id', 'text'],
       additionalProperties: false,
       properties: {
         id: { type: 'string' },
         text: {
           type: 'object',
-          required: ['title', 'body'],
+          required: ['body'],
           properties: {
             title: { type: 'string' },
             body: { type: 'string' },
@@ -113,6 +114,13 @@ const taskSpec = {
       required: ['cluster_id', 'document_id'],
       additionalProperties: true,
       properties: {
+        merged_cluster_ids: {
+          description: 'array with cluster ids that have been merged into the current cluster',
+          type: 'array',
+          items: {
+            type: 'integer',
+          },
+        },
         cluster_id: { type: 'number' },
         document_id: { type: 'string' },
         group_id: { const: 'English' },
@@ -151,6 +159,7 @@ const taskSpec = {
       const monoUpdate = fieldValue;
       const { cluster_id: clusterId } = monoUpdate;
       const { document_id: documentId } = monoUpdate;
+      const mergedStorylineIds = monoUpdate.merged_cluster_ids.map(id => id.toString());
       const storylineId = clusterId.toString();
 
       const label = taskSpecificMetadata.engTitle;
@@ -161,7 +170,7 @@ const taskSpec = {
         timeAdded: taskSpecificMetadata.timeAdded,
       };
       console.log(`Creating/Updating Story on ${storylineId}; doc: ${documentId}`, newsItem);
-      createOrUpdateStoryline(storylineId, label, newsItem,
+      createOrUpdateStoryline(storylineId, label, newsItem, mergedStorylineIds,
         (storylineErr) => {
           if (storylineErr) {
             callback(storylineErr);

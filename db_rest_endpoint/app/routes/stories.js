@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { reportError } from '../common/errorReporting.js';
 import { getMediaItemType } from '../common/utils.js';
+import config from '../config.js';
 
 export default (r, topLevelPath) => { // eslint-disable-line
   const table = r.table('storylines');
@@ -10,7 +11,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
     table
       // calculate fields
       .merge((story) => {
-        const newsItems = r.db('summa_db')
+        const newsItems = r.db(config.db.dbName)
           .table('newsItems')
           .between([story('id'), r.minval], [story('id'), r.maxval], { index: 'storylineId-timeAdded' });
         return {

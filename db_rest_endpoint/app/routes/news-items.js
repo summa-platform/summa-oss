@@ -104,7 +104,7 @@ const newsItemSchema = {
     },
     prevSourceItemIdAtOrigin: {
       description: 'the id of previous source item in the origin; used for prew/next navigation',
-      type: 'string',
+      type: ['string', 'null'],
     },
 
     //
@@ -467,6 +467,8 @@ export default (r, topLevelPath) => {
     let start;
     if (request.query.startEpochTimeSecs) {
       start = r.epochTime(r.expr(request.query.startEpochTimeSecs).coerceTo('number'));
+    } else if (table.count() == 0) {
+      start = r.now().toEpochTime();
     } else {
       start = table.min({ index: 'timeAdded' })('timeAdded');
     }
@@ -534,6 +536,8 @@ export default (r, topLevelPath) => {
     let start;
     if (request.query.startEpochTimeSecs) {
       start = r.expr(request.query.startEpochTimeSecs).coerceTo('number');
+    } else if (table.count() == 0) {
+      start = r.now().toEpochTime();
     } else {
       start = table.min({ index: 'doneTimestamp' })('doneTimestamp');
     }

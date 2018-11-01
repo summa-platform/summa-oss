@@ -4,6 +4,7 @@ import Ajv from 'ajv';
 import _ from 'underscore';
 import { reportError, formatValidationErrors } from '../common/errorReporting.js';
 import { hourInSeconds, getFormatedNewsItems, getHourOffsetBin } from '../common/utils.js';
+import config from '../config.js';
 
 const ajv = new Ajv({
   allErrors: true,
@@ -166,7 +167,7 @@ export default (r, topLevelPath) => {
   // throw a 415 Unsupported Media Type HTTP status code.
 
   const getExtendedFeedGroups = query => ({
-    feedGroups: r.db('summa_db')
+    feedGroups: r.db(config.db.dbName)
         .table('feedGroups')
         .filter(feedGroup => query('feedGroups').contains(feedGroup('id')))
         .pluck('id', 'name')
@@ -448,7 +449,7 @@ export default (r, topLevelPath) => {
 
     const stories = storyIds
       .map((storyId) => {
-        const storyline = r.db('summa_db')
+        const storyline = r.db(config.db.dbName)
           .table('storylines').get(storyId);
 
         const storyFilteredNewsItems = filterNewsItemsBy(
@@ -519,7 +520,7 @@ export default (r, topLevelPath) => {
                                                             topResultOffset + topResultCount);
     }
 
-    const story = r.db('summa_db')
+    const story = r.db(config.db.dbName)
       .table('storylines').get(storyId);
 
     return r.expr({

@@ -121,7 +121,7 @@ set +a
 
 
 build() {
-	docker-compose build --pull "$@"
+	docker-compose build "$@"
 }
 
 push() {
@@ -214,6 +214,17 @@ deploy() {
 	if ([ $remove_old_stack -eq 1 ] && [ -n "`docker stack ls | grep "$stack"`" ]); then
 		echo "Waiting for old stack to be removed ..."
 		remove --wait "$stack"
+	elif ([ $remove_old_stack -eq 1 ] && [ -n "$(docker network ls --filter label=com.docker.stack.namespace=$stack -q)" ]); then
+		echo "Waiting for the network of old stack to be removed ..."
+		local left=60	# max 60s wait
+		# https://github.com/moby/moby/issues/29293#issuecomment-318852549
+		until [ -z "$(docker network ls --filter label=com.docker.stack.namespace=$stack -q)" ] || [ "$left" -le 0 ]; do
+			sleep 1;
+			left=$(($left-1))
+		done
+		if [ -n "$(docker network ls --filter label=com.docker.stack.namespace=$stack -q)" ]; then
+			echo "Warning: timed out, but network of old stack is not yet removed"
+		fi
 	fi
 
 	if [ $no_clean -eq 0 ] && [ -n "`ls -1 docker-compose.combined.*.yml 2> /dev/null`" ]; then
@@ -470,9 +481,10 @@ elif [ "$1" = "redeploy" ]; then
 			# [ -n "$stack" ] && args=("${args[@]}" --stack "$stack")
 
 			for config in "${configs[@]}"; do
-				config_stack="`docker config inspect test_db_config  --format '{{index .Spec.Labels "com.docker.stack.namespace"}}'`"
-				# macOS compatible sed
+				config_stack="`docker config inspect $config --format '{{index .Spec.Labels "com.docker.stack.namespace"}}'`"
 				config="${config##${config_stack}_}"
+				# config="${config##${stack}}"
+				# macOS compatible sed
 				config_file="`cat "$tmp" | sed -e '1p' | sed -e '1,/^configs:/d ; /^[^ ]/,$d' | sed -e '1p' | sed -e "1,/$config:/d ; /^ *file:/"'!d' | sed -e 's/^ *file: *// ; 2,$d'`"
 				# config_file="`sed -e '0,/^configs:\s*$/d' -e '/^\S/,$d' "$tmp" | grep -A 1 " $config:" | tail -n 1 | sed -e 's/^ *file: //'`"
 				args=("${args[@]}" "${config}=$config_file")

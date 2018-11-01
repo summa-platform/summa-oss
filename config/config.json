@@ -1,6 +1,6 @@
 {
   "db": {
-    "host": "summa_db",
+    "host": "db",
     "port": 28015,
 
     "dbName"  : "summa_db",

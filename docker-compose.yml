@@ -4,7 +4,7 @@ services:
   entrypoint:
     # entrypoint is the access point to the system from the outside
     #   /              -> ui_stack                     (gui for journalists)
-    #   /v1            -> base_ui                      (gui for journalists)
+    #   /v1            -> legacy_ui                    (gui for journalists)
     #   /video-chunks/ -> livestream_cache_and_chunker (to access the livestream cache from outside)
     #   /db/           -> db                           (gui for db exploration)
     #   /job_queue/    -> job_queue                    (gui for job queue explorion)
@@ -34,7 +34,7 @@ services:
   db_setup:
     build:
         context: ./db_setup
-    image: ${PRIVATE_REGISTRY_URL}/platform_db_setup:${PLATFORM_DB_SETUP_VER:-latest}
+    image: ${PRIVATE_REGISTRY_URL}/db_setup:${PLATFORM_DB_SETUP_VER:-latest}
     configs:
       - source: db_config
         target: /config/config.json
@@ -56,7 +56,7 @@ services:
   livestream_cache_and_chunker:
     build:
         context: ./hlschunker
-    image: ${PRIVATE_REGISTRY_URL}/platform_livestream_chunker:${PLATFORM_LIVESTREAM_CHUNKER_VER:-latest}
+    image: ${PRIVATE_REGISTRY_URL}/livestream_chunker:${PLATFORM_LIVESTREAM_CHUNKER_VER:-latest}
     configs:
       - source: hls_chunker_config
         target: /config/config.yaml
@@ -77,7 +77,7 @@ services:
   db_rest_endpoint:
     build:
         context: ./db_rest_endpoint
-    image: ${PRIVATE_REGISTRY_URL}/platform_rest_endpoint:${PLATFORM_REST_ENDPOINT_VER:-latest}
+    image: ${PRIVATE_REGISTRY_URL}/db_rest_endpoint:${PLATFORM_REST_ENDPOINT_VER:-latest}
     configs:
       - source: db_config
         target: /config/config.json
@@ -90,20 +90,17 @@ services:
   ########
   # GUIs #
   ########
-  base_ui:
-    image: ${PRIVATE_REGISTRY_URL}/gui_summa_ui:${GUI_SUMMA_UI_VER:-latest}
+  legacy_ui:
+    image: ${SOURCE_REGISTRY_URL}/legacy-ui:latest
     deploy:
       replicas: 1
       restart_policy:
         condition: any
 
   ui_stack_db:
-    # image: postgres:10.2-alpine
-    image: mdillon/postgis:10-alpine
+    image: ${SOURCE_REGISTRY_URL}/ui-stack-db:latest
     volumes:
-      - ${PWD}/ui-stack/dbinit:/docker-entrypoint-initdb.d
       - ui_stack_db_volume:/var/lib/postgresql/data
-      - ${PWD}/ui-stack/postgres-entrypoint.sh:/docker-entrypoint.sh
     environment:
       POSTGRES_USER: summa
       POSTGRES_DB: summa
@@ -116,32 +113,30 @@ services:
         constraints:
           - node.role == manager
 
-  ui_stack_updatedb:
-    image: ${PRIVATE_REGISTRY_URL}/ui_stack_updatedb:${SUMMA_UI_STACK_UPDATEDB_VER:-latest}
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: on-failure
-        delay: 10s
-        max_attempts: 3
-
   ui_stack_pull:
-    image: ${PRIVATE_REGISTRY_URL}/ui_stack_pull:${SUMMA_UI_STACK_PULL_VER:-latest}
+    image: ${SOURCE_REGISTRY_URL}/ui-stack-pull:latest
     command: default=http://db_rest_endpoint/,http://livestream_cache_and_chunker:6000/
 
   ui_stack_clustering:
-    image: ${PRIVATE_REGISTRY_URL}/ui_stack_clustering:${SUMMA_UI_STACK_CLUSTERING_VER:-latest}
+    image: ${SOURCE_REGISTRY_URL}/ui-stack-clustering:latest
     volumes:
-      - ui_stack_clustering_data_volume:/pba/clustering/standalone/:rw
+      - ui_stack_clustering_data_volume:/opt/app/state/:rw
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role == manager
 
   ui_stack_summarization:
-    image: ${PRIVATE_REGISTRY_URL}/ui_stack_summarization:${SUMMA_UI_STACK_SUMMARIZATION_VER:-latest}
+    image: ${SOURCE_REGISTRY_URL}/ui-stack-summarization:latest
 
   ui_stack_geolocation:
-    image: ${PRIVATE_REGISTRY_URL}/ui_stack_geolocation:${SUMMA_UI_STACK_GEOLOCATION_VER:-latest}
+    image: ${SOURCE_REGISTRY_URL}/ui-stack-geolocation:latest
 
   ui_stack:
-    image: ${PRIVATE_REGISTRY_URL}/ui_stack:${SUMMA_UI_STACK_VER:-latest}
+    image: ${SOURCE_REGISTRY_URL}/ui-stack:latest
 
 
   ##############################
@@ -152,7 +147,7 @@ services:
   task_producers:
     build:
         context: ./common_task_producer_and_worker
-    image: ${PRIVATE_REGISTRY_URL}/platform_task_producer:${PLATFORM_TASK_PRODUCER_VER:-latest}
+    image: ${PRIVATE_REGISTRY_URL}/task_producer:${PLATFORM_TASK_PRODUCER_VER:-latest}
     environment:
       STEP_TYPE: 'TASK_PRODUCER'
       MESSAGE_QUEUE_HOST: ${MESSAGE_QUEUE_HOST}
@@ -186,7 +181,7 @@ services:
   task_workers:
     build:
         context: ./common_task_producer_and_worker
-    image: ${PRIVATE_REGISTRY_URL}/platform_task_worker:${PLATFORM_TASK_WORKER_VER:-latest}
+    image: ${PRIVATE_REGISTRY_URL}/task_worker:${PLATFORM_TASK_WORKER_VER:-latest}
     environment:
       STEP_TYPE: 'TASK_WORKER'
       MESSAGE_QUEUE_HOST: ${MESSAGE_QUEUE_HOST}
@@ -207,7 +202,7 @@ services:
   result_writers:
     build:
         context: ./common_task_producer_and_worker
-    image: ${PRIVATE_REGISTRY_URL}/platform_result_writer:${PLATFORM_RESULT_WRITER_VER:-latest}
+    image: ${PRIVATE_REGISTRY_URL}/result_writer:${PLATFORM_RESULT_WRITER_VER:-latest}
     environment:
       STEP_TYPE: 'RESULT_WRITER'
       MESSAGE_QUEUE_HOST: ${MESSAGE_QUEUE_HOST}
@@ -245,7 +240,7 @@ services:
   ##
   ## Language Detection
   language_detection:
-    image: ${PRIVATE_REGISTRY_URL}/nlp_language_detection_worker:${NLP_LANGUAGEDETECTION_WORKER_VER:-latest}
+    image: ${SOURCE_REGISTRY_URL}/language-detection:latest
     environment:
       RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
       EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
@@ -256,11 +251,25 @@ services:
         condition: any
 
 
+  ##
+  ## Deeptagger
+  deeptagger_worker:
+    image: ${SOURCE_REGISTRY_URL}/deeptagger:latest
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.DeepTagging.en
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
 
   ##
   ## ASR
   asr_worker-en:
-    image: ${PRIVATE_REGISTRY_URL}/nlp_asr_worker:${NLP_ASR_WORKER_EN_VER:-latest-en}
+    image: ${SOURCE_REGISTRY_URL}/asr:en
     environment:
       RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
       RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
@@ -271,37 +280,64 @@ services:
       restart_policy:
         condition: any
 
-  asr_worker-ar:
-    image: ${PRIVATE_REGISTRY_URL}/nlp_asr_worker:${NLP_ASR_WORKER_AR_VER:-latest-ar}
+  asr_worker-de:
+    image: ${SOURCE_REGISTRY_URL}/asr:de
     environment:
       RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
       RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
       EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
-      QUEUE_IN: SUMMA-NLP.ASR.ar
+      QUEUE_IN: SUMMA-NLP.ASR.de
     deploy:
       replicas: 3
       restart_policy:
         condition: any
 
-  ##
-  ## Punctutation
-  punctuation_worker-en:
-    image: ${PRIVATE_REGISTRY_URL}/nlp_punctuation_worker:${NLP_PUNCTUATION_WORKER_EN_VER:-latest-en}-${IMAGE_ARCH:-unk}
+  asr_worker-lv:
+    image: ${SOURCE_REGISTRY_URL}/asr:lv
     environment:
       RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
-      QUEUE_IN: SUMMA-NLP.Punctuation.en
+      RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
       EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.ASR.lv
     deploy:
       replicas: 1
       restart_policy:
         condition: any
 
-  punctuation_worker-ar:
-    image: ${PRIVATE_REGISTRY_URL}/nlp_punctuation_worker:${NLP_PUNCTUATION_WORKER_AR_VER:-latest-ar}-${IMAGE_ARCH:-unk}
+
+  ##
+  ## Punctutation
+  punctuation_worker-en:
+    image: ${SOURCE_REGISTRY_URL}/punctuation:latest
     environment:
       RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
-      QUEUE_IN: SUMMA-NLP.Punctuation.ar
+      QUEUE_IN: SUMMA-NLP.Punctuation.en
       EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      ONEPASS_SEG: "TRUE"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  punctuation_worker-de:
+    image: ${SOURCE_REGISTRY_URL}/punctuation:latest
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      QUEUE_IN: SUMMA-NLP.Punctuation.de
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      ONEPASS_SEG: "TRUE"
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+  punctuation_worker-lv:
+    image: ${SOURCE_REGISTRY_URL}/punctuation:latest
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      QUEUE_IN: SUMMA-NLP.Punctuation.lv
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      ONEPASS_SEG: "TRUE"
     deploy:
       replicas: 1
       restart_policy:
@@ -310,16 +346,75 @@ services:
 
   ##
   ## MT
-  mt_worker-ar:
-    image: ${PRIVATE_REGISTRY_URL}/nlp_mt_worker:${NLP_MT_WORKER_AR_VER:-latest-ar}-${IMAGE_ARCH:-unk}
+  mt_worker-de:
+    image: ${SOURCE_REGISTRY_URL}/mt:de-en
     environment:
       RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
-      QUEUE_IN: SUMMA-NLP.MT.ar
+      QUEUE_IN: SUMMA-NLP.MT.de
       EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
     deploy:
       replicas: 1
       restart_policy:
         condition: any
+
+  mt_worker-lv:
+    image: ${SOURCE_REGISTRY_URL}/mt:lv-en
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      QUEUE_IN: SUMMA-NLP.MT.lv
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+  ##
+  ## Entity Tagging
+  entity_tagging_worker:
+    image: ${SOURCE_REGISTRY_URL}/entity-tagging:latest
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.EntityTagging.en
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+  ##
+  ## Storyline summarization
+  summarization_worker:
+    image: ${SOURCE_REGISTRY_URL}/summarization:latest
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.Summary.en
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+
+
+  ##
+  ## Storyline Clustering
+  clustering_worker:
+    image: ${SOURCE_REGISTRY_URL}/clustering:latest
+    environment:
+      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
+      RELATIVE_URL_ROOT: ${LIVESTREAM_CACHE_SERVER}
+      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
+      QUEUE_IN: SUMMA-NLP.Clustering.en
+    volumes:
+      - storyline_cluster_data_volume:/opt/app/state/:rw
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      placement:
+        constraints:
+          - node.role == manager
 
 
 ###########

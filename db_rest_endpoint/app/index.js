@@ -22,17 +22,15 @@ import mediaItemsApi from './routes/mediaItems.js';
 import feedbackAPI from './routes/feedback.js';
 import taskProgressAPI from './routes/taskProgress.js';
 
+import config from './config.js';
+
 
 console.log('\nStarting The SummaDB REST Endpoint');
 
 
-//
-// Config
-//
-const configFilePath = '/config/config.json';
-
 Kefir
-  .fromNodeCallback(callback => (jsonfile.readFile(configFilePath, callback)))
+  // .fromNodeCallback(callback => (jsonfile.readFile(configFilePath, callback)))
+  .fromNodeCallback(callback => callback(null, config))
   .map(config => config.db)
   .onValue((dbConfig) => {
     const r = rDash({

@@ -3,6 +3,7 @@ import { Router } from 'express';
 import Ajv from 'ajv';
 import _ from 'underscore';
 import { reportError, formatValidationErrors } from '../common/errorReporting.js';
+import config from '../config.js';
 
 const ajv = new Ajv({
   allErrors: true,
@@ -52,7 +53,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
     // therefore get count of elemnets
     // and then make multiple request to get get all items
     const typeBlackList = ['time', 'unk', 'url', 'price', 'email'];
-    const entityQuery = r.db('summa_db')
+    const entityQuery = r.db(config.db.dbName)
       .table('namedEntities')
       .filter(row => r.expr(typeBlackList).contains(row('type')).not())
       // return only latest
@@ -100,7 +101,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
   router.get('/:id', (request, response, next) => {
     const id = request.params.id;
 
-    r.db('summa_db')
+    r.db(config.db.dbName)
       .table('namedEntities')
       .get(id)
       .do(namedEntity => (
@@ -109,7 +110,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
           namedEntity.eq(null),
           null,
           namedEntity.merge({
-            mentions: r.db('summa_db')
+            mentions: r.db(config.db.dbName)
               .table('newsItems')
               .getAll(namedEntity('baseForm').default(''), { index: 'namedEntities' })
               .limit(500)
@@ -160,7 +161,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
         }))
         .value();
 
-      r.db('summa_db')
+      r.db(config.db.dbName)
         .table('namedEntities')
         .insert(
           uniqueEntities, {
@@ -204,7 +205,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
       });
       next();
     } else {
-      r.db('summa_db')
+      r.db(config.db.dbName)
         .table('namedEntities')
         .get(id)
         .update(namedEntity => ({
@@ -227,7 +228,7 @@ export default (r, topLevelPath) => { // eslint-disable-line
   });
 
   router.get('/resetAllRelationships', (request, response, next) => {
-    r.db('summa_db')
+    r.db(config.db.dbName)
       .table('namedEntities')
       .update({ relationships: r.literal() }, { durability: 'soft' })
       .run()

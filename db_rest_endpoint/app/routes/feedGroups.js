@@ -2,6 +2,7 @@
 import { Router } from 'express';
 import Ajv from 'ajv';
 import { reportError, formatValidationErrors } from '../common/errorReporting.js';
+import config from '../config.js';
 
 const ajv = new Ajv({
   allErrors: true,
@@ -79,7 +80,7 @@ export default (r, topLevelPath) => {
 
 
   const getFeeds = feedGroup => ({
-    feeds: r.db('summa_db').table('feeds')
+    feeds: r.db(config.db.dbName).table('feeds')
       .getAll(r.args(feedGroup('feeds').default([])))
       .merge({ status: 'Active' }) // TODO: calculate actual status
       .coerceTo('array'),

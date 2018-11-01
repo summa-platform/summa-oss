@@ -2,7 +2,7 @@
 import _ from 'underscore';
 
 
-const supportedLanguages = ['en', 'ar', 'de', 'es', 'lv', 'ru'];
+const supportedLanguages = ['en', 'ar', 'de', 'es', 'lv', 'ru', 'uk', 'fa'];
 
 const transcriptSchema = {
   type: 'object',
