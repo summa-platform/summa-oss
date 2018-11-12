@@ -147,7 +147,7 @@ remove() {
 		docker stack rm "$stack"
 
 		if [ $wait -eq 1 ]; then
-			echo "Waiting for stack $stack to be removed"
+			echo "waiting for stack $stack to be removed"
 			local left=60	# max 60s wait
 			# https://github.com/moby/moby/issues/29293#issuecomment-318852549
 			until ([ -z "$(docker service ls --filter label=com.docker.stack.namespace=$stack -q)" ] \
