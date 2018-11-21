@@ -343,17 +343,6 @@ services:
       restart_policy:
         condition: any
 
-  punctuation_worker-lv:
-    image: ${SOURCE_REGISTRY_URL}/nlp_punctuation_worker:${NLP_PUNCTUATION_WORKER_LV_VER:-latest-lv}-${IMAGE_ARCH:-unk}
-    environment:
-      RABBITMQ_URL: ${MESSAGE_QUEUE_HOST}
-      QUEUE_IN: SUMMA-NLP.Punctuation.lv
-      EXCHANGE_OUT: ${TASK_RESULT_EXCHANGE_NAME}
-    deploy:
-      replicas: 1
-      restart_policy:
-        condition: any
-
 
   ##
   ## MT
