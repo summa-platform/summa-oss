@@ -1,3 +1,13 @@
+# About
+
+This is a central repository to launch SUMMA Platform. The Open Source NLP Components can be found [github.com/summa-platform](https://github.com/summa-platform).
+By default the platform can process English and German content.
+
+[SUMMA Poster](./SUMMAposter.pdf)
+
+This is part of 
+[SUMMA Project H2020](http://summa-project.eu)
+
 # Requirements
 ## Software
 
