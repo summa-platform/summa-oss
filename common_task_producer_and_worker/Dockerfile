@@ -1,4 +1,4 @@
-FROM node:8.9.1
+FROM node:8-jessie
 
 # install fluent-ffmpeg dependencies
 # http://qiita.com/flny/items/798547356dcc47239702
