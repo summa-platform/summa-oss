@@ -1,6 +1,6 @@
 FROM ubuntu:16.04
 
-RUN apt update && apt install -y python3 python3-pip
+RUN apt update && apt install -y curl python3 python3-pip && apt remove -y --purge python3-pip && curl -O https://bootstrap.pypa.io/pip/3.4/get-pip.py && python3 get-pip.py
 
 RUN pip3 install --upgrade pip && hash -r && pip3 install aiohttp==1.0.1 aiohttp-cors==0.4.0 PyYAML
 
