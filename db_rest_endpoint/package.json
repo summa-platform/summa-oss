@@ -6,7 +6,7 @@
   "description": "a REST endpoint for reading and writing to summa db",
   "author": "Renars Liepins <renars.liepins@leta.lv>",
   "dependencies": {
-    "express": "4.16.2",
+    "express": "4.19.2",
     "body-parser": "^1.15.2",
     "cors": "^2.7.1",
     "ajv": "^4.5.0",
